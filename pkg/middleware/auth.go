@@ -10,7 +10,7 @@ import (
 
 type key string
 
-const ContextEmailKey key = "ContextEmailKey"
+const ContextUserIDKey key = "userID"
 
 func writeUnauthorized(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusUnauthorized)
@@ -38,7 +38,7 @@ func IsAuthenticated(config *configs.Config) func(http.Handler) http.Handler {
 				writeUnauthorized(w)
 				return
 			}
-			ctx := context.WithValue(r.Context(), ContextEmailKey, data.Email)
+			ctx := context.WithValue(r.Context(), ContextUserIDKey, data.UserId)
 			req := r.WithContext(ctx)
 			next.ServeHTTP(w, req)
 		})

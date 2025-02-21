@@ -1,95 +1,88 @@
 package notes
 
 import (
-	"ToDo/pkg/db"
 	"ToDo/pkg/idgen"
-	"ToDo/pkg/valid"
+	"context"
 	"errors"
+	"fmt"
 	"gorm.io/gorm"
-	"log/slog"
 )
 
 type NoteRepository struct {
-	DataBase *db.Db
+	db *gorm.DB
 }
 
-func NewNoteRepository(dataBase *db.Db) *NoteRepository {
+func NewNoteRepository(dataBase *gorm.DB) *NoteRepository {
 	return &NoteRepository{
-		DataBase: dataBase,
+		db: dataBase,
 	}
 }
 
-func (repo *NoteRepository) Create(note *Note) (*Note, error) {
+func (r *NoteRepository) CreateNote(ctx context.Context, note *Note) (*Note, error) {
 	note.ID = idgen.GenerateNanoID()
 	if note.ID == "" {
-		return nil, errors.New("id is empty")
-	}
-	result := repo.DataBase.Create(note)
-	if result.Error != nil {
-		slog.Error("Can not create note", result.Error)
-		return nil, result.Error
+		return nil, fmt.Errorf("generate id: %w", ErrCreateNote)
 	}
 
+	result := r.db.WithContext(ctx).Create(note)
+	if result.Error != nil {
+		return nil, fmt.Errorf("create note with ID %s: %w", note.ID, result.Error)
+	}
 	return note, nil
 }
 
-func (repo *NoteRepository) GetAllNotes(limit, offset int) ([]Note, error) {
+func (r *NoteRepository) GetAllNotes(ctx context.Context, userId string, limit, offset int) ([]Note, int64, error) {
 	var notes []Note
-	query := repo.DataBase.
-		Table("notes").
-		Select("*").
-		Session(&gorm.Session{})
+	var totalCount int64
 
-	query = query.
+	countQuery := r.db.WithContext(ctx).Model(&Note{}).Where("user_id = ?", userId).Count(&totalCount)
+	if countQuery.Error != nil {
+		return nil, 0, fmt.Errorf("get total count for user %s: %w", userId, countQuery.Error)
+	}
+
+	query := r.db.WithContext(ctx).
+		Where("user_id = ?", userId).
 		Order("created_at asc").
-		Limit(int(limit)).
-		Offset(int(offset)).
-		Scan(&notes)
+		Limit(limit).
+		Offset(offset).
+		Find(&notes) // Исправлено ¬es на &notes
 
 	if query.Error != nil {
-		return nil, query.Error
+		return nil, 0, fmt.Errorf("get all notes for user %s: %w", userId, query.Error)
 	}
-	return notes, nil
+	return notes, totalCount, nil
 }
 
-func (repo *NoteRepository) GetById(noteId string) (*Note, error) {
+func (r *NoteRepository) GetNote(ctx context.Context, noteId string) (*Note, error) {
 	var note Note
-	result := repo.DataBase.Where("id = ?", noteId).First(&note)
+	result := r.db.WithContext(ctx).Where("id = ?", noteId).First(&note) // Исправлено ¬e на &note
 	if result.Error != nil {
-		return nil, result.Error
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("get note by id %s: %w", noteId, ErrNoteNotFound)
+		}
+		return nil, fmt.Errorf("get note by id %s: %w", noteId, result.Error)
 	}
 	return &note, nil
 }
 
-func (repo *NoteRepository) Update(note *Note) (*Note, error) {
-	err := valid.ValidateStatus(note.Status)
-	if err != nil {
-		slog.Error("Invalid note status", note.Status)
-		return nil, err
-	}
-
-	result := repo.DataBase.Save(note)
+func (r *NoteRepository) UpdateNote(ctx context.Context, note *Note) (*Note, error) {
+	result := r.db.WithContext(ctx).Save(note)
 	if result.Error != nil {
-		slog.Error("Can not update note", result.Error)
-		return nil, result.Error
+		return nil, fmt.Errorf("update note with ID %s: %w", note.ID, result.Error)
 	}
-
 	if result.RowsAffected == 0 {
-		slog.Error("Note does not exist", note.ID)
-		return nil, gorm.ErrRecordNotFound
+		return nil, fmt.Errorf("update note with ID %s: %w", note.ID, ErrNoteNotFound)
 	}
-
 	return note, nil
 }
-func (repo *NoteRepository) Delete(noteId string) error {
-	result := repo.DataBase.Where("id = ?", noteId).Delete(&Note{})
+
+func (r *NoteRepository) DeleteNote(ctx context.Context, noteId string) error {
+	result := r.db.WithContext(ctx).Where("id = ?", noteId).Delete(&Note{})
 	if result.Error != nil {
-		slog.Error("Can not delete note", result.Error)
-		return result.Error
+		return fmt.Errorf("delete note with ID %s: %w", noteId, result.Error)
 	}
 	if result.RowsAffected == 0 {
-		slog.Error("Note does not exist", noteId)
-		return gorm.ErrRecordNotFound
+		return fmt.Errorf("delete note with ID %s: %w", noteId, ErrNoteNotFound)
 	}
 	return nil
 }

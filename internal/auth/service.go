@@ -2,53 +2,66 @@ package auth
 
 import (
 	"ToDo/internal/user"
-	"ToDo/pkg/depInj"
+	"context"
 	"errors"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
 )
 
 type AuthService struct {
-	UserRepository depInj.IUserRepository
+	UserRepository IUserRepository
 }
 
-func NewUserService(userRepository depInj.IUserRepository) *AuthService {
+type IUserRepository interface {
+	Create(ctx context.Context, user *user.User) (*user.User, error)
+	FindById(ctx context.Context, userId string) (*user.User, error)
+	FindByEmail(ctx context.Context, email string) (*user.User, error)
+}
+
+func NewUserService(userRepository IUserRepository) *AuthService {
 	return &AuthService{
 		UserRepository: userRepository,
 	}
 }
 
-func (service *AuthService) Register(email, password, name string) (string, error) {
-	existedUser, _ := service.UserRepository.FindByEmail(email)
-	if existedUser != nil {
-		return "", errors.New(ErrUserExisted)
+func (s *AuthService) Register(ctx context.Context, email, password, name string) (string, error) {
+	//Проверяем существует ли пользователь (используем FindByEmail)
+	_, err := s.UserRepository.FindByEmail(ctx, email)
+	if err == nil { // Если ошибки нет, значит, пользователь найден.
+		return "", user.ErrUserAlreadyExists
 	}
-
+	if err != nil && !errors.Is(err, user.ErrUserNotFound) {
+		return "", fmt.Errorf("check user existance: %w", err)
+	}
+	//Хешируем пароль
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("hash password: %w", err)
 	}
-	user := &user.User{
+	//Создаем пользователя
+	newUser := &user.User{
 		Email:    email,
 		Password: string(hashedPassword),
 		Name:     name,
 	}
-	_, err = service.UserRepository.Create(user)
+	createdUser, err := s.UserRepository.Create(ctx, newUser)
 	if err != nil {
-		return "", err
+		return "", err // Ошибка уже обернута в репозитории
 	}
-	return user.Email, nil
+	return createdUser.ID, nil
 }
 
-func (service *AuthService) Login(email, password string) (*user.User, error) {
-	existedUser, _ := service.UserRepository.FindByEmail(email)
-	if existedUser == nil {
-		return nil, errors.New(ErrWrongCredentials)
-	}
-	err := bcrypt.CompareHashAndPassword([]byte(existedUser.Password), []byte(password))
+func (s *AuthService) Login(ctx context.Context, id, password string) (*user.User, error) {
+	existingUser, err := s.UserRepository.FindById(ctx, id)
 	if err != nil {
-		slog.Info(err.Error())
-		return nil, errors.New(ErrWrongCredentials)
+		return nil, err // Ошибка уже обернута в репозитории
 	}
-	return existedUser, nil
+	// Сравниваем хешированный пароль
+	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(password))
+	if err != nil {
+		slog.Info("Invalid password", "error", err)
+		return nil, user.ErrUserNotFound // Возвращаем ErrUserNotFound для безопасности
+	}
+	return existingUser, nil
 }

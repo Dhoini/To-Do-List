@@ -2,9 +2,11 @@ package auth
 
 import (
 	"ToDo/configs"
+	"ToDo/internal/user"
 	"ToDo/pkg/req"
 	"ToDo/pkg/res"
 	token2 "ToDo/pkg/token"
+	"errors"
 	"net/http"
 )
 
@@ -16,7 +18,7 @@ type AuthHandlerDeps struct {
 type AuthHandler struct {
 	*configs.Config
 	*AuthService
-} // может их бдять убарть DRY!
+}
 
 func NewAuthHandler(router *http.ServeMux, deps *AuthHandlerDeps) {
 	handler := &AuthHandler{
@@ -28,21 +30,23 @@ func NewAuthHandler(router *http.ServeMux, deps *AuthHandlerDeps) {
 	router.HandleFunc("POST /auth/register", handler.Register())
 }
 
-func (handler *AuthHandler) Register() http.HandlerFunc {
+func (h *AuthHandler) Register() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, err := req.HandleBody[RegisterRequest](&w, r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		email, err := handler.AuthService.Register(body.Email, body.Password, body.Name)
+		userId, err := h.AuthService.Register(r.Context(), body.Email, body.Password, body.Name)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			if errors.Is(err, user.ErrUserAlreadyExists) {
+				res.JsonResponse(w, res.ErrorResponse{Error: err.Error()}, http.StatusConflict) //
+			} else {
+				res.JsonResponse(w, res.ErrorResponse{Error: "internal server error"}, http.StatusInternalServerError) //
+			}
 			return
 		}
-
-		token, err := token2.NewJWT(handler.Config.Auth.Secret).GenerateToken(token2.JwtDate{
-			Email: email,
+		token, err := token2.NewJWT(h.Config.Auth.Secret).GenerateToken(token2.JwtDate{
+			UserId: userId,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -57,22 +61,25 @@ func (handler *AuthHandler) Register() http.HandlerFunc {
 	}
 }
 
-func (handler *AuthHandler) Login() http.HandlerFunc {
+func (h *AuthHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		body, err := req.HandleBody[LoginRequest](&w, r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		email, err := handler.AuthService.Login(body.Email, body.Password)
+		email, err := h.AuthService.Login(r.Context(), body.Email, body.Password)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			if errors.Is(err, user.ErrUserNotFound) {
+				res.JsonResponse(w, res.ErrorResponse{Error: "invalid credentials"}, http.StatusUnauthorized)
+			} else {
+				res.JsonResponse(w, res.ErrorResponse{Error: "internal server errror"}, http.StatusInternalServerError)
+			}
 			return
 		}
 
-		token, err := token2.NewJWT(handler.Config.Auth.Secret).GenerateToken(token2.JwtDate{
+		token, err := token2.NewJWT(h.Config.Auth.Secret).GenerateToken(token2.JwtDate{
 			Email: email.Email,
 		})
 		if err != nil {

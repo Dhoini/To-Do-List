@@ -1,16 +1,14 @@
 services:
-  # Определение сервиса PostgreSQL.
+
   postgres:
-    container_name: postgres_go # Имя контейнера, которое будет использоваться для PostgreSQL.
-    image: postgres # Используем официальный образ PostgreSQL из Docker Hub.
+    container_name: postgres_go
+    image: postgres
     environment:
-      POSTGRES_USER: postgres # Имя пользователя для базы данных (по умолчанию 'postgres').
-      POSTGRES_PASSWORD: Daniar05 # Пароль для пользователя базы данных.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Daniar05
       POSTGRES_DB: ToDo
-      PGDATA: /data/postgres # Путь внутри контейнера, где будут храниться данные PostgreSQL.
+      PGDATA: /data/postgres
     volumes:
-      - ./postgres-data:/datapostgres # Монтируем локальную директорию ./postgres-data в контейнер.
-      # Это позволяет сохранять данные PostgreSQL на локальной машине, даже если контейнер удален.
+      - ./postgres-data:/datapostgres 
     ports:
-      - "5432:5432" # Проброс порта 5432 с контейнера на локальную машину.
-      # Порт 5432 — это стандартный порт PostgreSQL, который используется для подключения к базе данных.
+      - "5432:5432"

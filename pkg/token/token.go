@@ -6,7 +6,8 @@ import (
 )
 
 type JwtDate struct {
-	Email string
+	UserId string
+	Email  string
 }
 
 type JWTSecret struct {
@@ -21,7 +22,7 @@ func NewJWT(secret string) *JWTSecret {
 
 func (j *JWTSecret) GenerateToken(date JwtDate) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": date.Email,
+		"userId": date.UserId,
 	})
 
 	secret, err := token.SignedString([]byte(j.Secret))
@@ -41,9 +42,18 @@ func (j *JWTSecret) ParseToken(token string) (bool, *JwtDate) {
 		slog.Error(err.Error(), "can not parse token")
 		return false, nil
 	}
-
-	email := t.Claims.(jwt.MapClaims)["email"].(string)
+	claims, ok := t.Claims.(jwt.MapClaims)
+	if !ok {
+		slog.Error("invalid token claims")
+		return false, nil
+	}
+	slog.Info("Token claims", "claims", claims)
+	userID, ok := claims["userId"].(string)
+	if !ok {
+		slog.Error("invalid userId in token claims", "actual_value", claims["userID"])
+		return false, nil
+	}
 	return t.Valid, &JwtDate{
-		Email: email,
+		UserId: userID,
 	}
 }
