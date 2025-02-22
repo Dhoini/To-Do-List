@@ -2,19 +2,24 @@ package notes
 
 import (
 	"ToDo/configs"
+	"ToDo/pkg/di"
 	"ToDo/pkg/middleware"
 	"net/http"
 )
 
+type NoteHandlerDeps struct {
+	Config      *configs.Config
+	NoteService di.INoteService
+}
 type NoteHandler struct {
-	NoteRepository *NoteService
-	Config         *configs.Config
+	Config      *configs.Config
+	NoteService di.INoteService
 }
 
-func NewNoteHandler(router *http.ServeMux, deps *NoteHandler) {
+func NewNoteHandler(router *http.ServeMux, deps *NoteHandlerDeps) {
 	handler := &NoteHandler{
-		NoteRepository: deps.NoteRepository,
-		Config:         deps.Config,
+		Config:      deps.Config,
+		NoteService: deps.NoteService,
 	}
 	middlewares := middleware.Chain(
 		middleware.CORS,

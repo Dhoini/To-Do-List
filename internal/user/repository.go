@@ -1,6 +1,7 @@
 package user
 
 import (
+	"ToDo/internal/models"
 	"ToDo/pkg/idgen"
 	"context"
 	"errors"
@@ -16,7 +17,7 @@ func NewUserRepository(dataBase *gorm.DB) *UserRepository {
 	return &UserRepository{db: dataBase}
 }
 
-func (r *UserRepository) Create(ctx context.Context, user *User) (*User, error) {
+func (r *UserRepository) Create(ctx context.Context, user *models.User) (*models.User, error) {
 	user.ID = idgen.GenerateNanoID()
 	if user.ID == "" {
 		return nil, fmt.Errorf("generate id: %w", errors.New("failed to generate id")) // Конкретная ошибка
@@ -32,8 +33,8 @@ func (r *UserRepository) Create(ctx context.Context, user *User) (*User, error) 
 	return user, nil
 }
 
-func (r *UserRepository) FindById(ctx context.Context, userId string) (*User, error) {
-	var user User
+func (r *UserRepository) FindById(ctx context.Context, userId string) (*models.User, error) {
+	var user models.User
 	result := r.db.WithContext(ctx).Where("id = ?", userId).First(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) { // Проверяем на ErrRecordNotFound
@@ -44,8 +45,8 @@ func (r *UserRepository) FindById(ctx context.Context, userId string) (*User, er
 	return &user, nil
 }
 
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
-	var user User
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
 	result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) { // Проверяем на ErrRecordNotFound

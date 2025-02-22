@@ -1,6 +1,7 @@
 package notes
 
 import (
+	"ToDo/internal/models"
 	"ToDo/pkg/idgen"
 	"context"
 	"errors"
@@ -18,7 +19,7 @@ func NewNoteRepository(dataBase *gorm.DB) *NoteRepository {
 	}
 }
 
-func (r *NoteRepository) CreateNote(ctx context.Context, note *Note) (*Note, error) {
+func (r *NoteRepository) Create(ctx context.Context, note *models.Note) (*models.Note, error) {
 	note.ID = idgen.GenerateNanoID()
 	if note.ID == "" {
 		return nil, fmt.Errorf("generate id: %w", ErrCreateNote)
@@ -31,11 +32,11 @@ func (r *NoteRepository) CreateNote(ctx context.Context, note *Note) (*Note, err
 	return note, nil
 }
 
-func (r *NoteRepository) GetAllNotes(ctx context.Context, userId string, limit, offset int) ([]Note, int64, error) {
-	var notes []Note
+func (r *NoteRepository) GetAll(ctx context.Context, userId string, limit, offset int) ([]models.Note, int64, error) {
+	var notes []models.Note
 	var totalCount int64
 
-	countQuery := r.db.WithContext(ctx).Model(&Note{}).Where("user_id = ?", userId).Count(&totalCount)
+	countQuery := r.db.WithContext(ctx).Model(&models.Note{}).Where("user_id = ?", userId).Count(&totalCount)
 	if countQuery.Error != nil {
 		return nil, 0, fmt.Errorf("get total count for user %s: %w", userId, countQuery.Error)
 	}
@@ -53,8 +54,8 @@ func (r *NoteRepository) GetAllNotes(ctx context.Context, userId string, limit, 
 	return notes, totalCount, nil
 }
 
-func (r *NoteRepository) GetNote(ctx context.Context, noteId string) (*Note, error) {
-	var note Note
+func (r *NoteRepository) Get(ctx context.Context, noteId string) (*models.Note, error) {
+	var note models.Note
 	result := r.db.WithContext(ctx).Where("id = ?", noteId).First(&note) // Исправлено ¬e на &note
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -65,7 +66,7 @@ func (r *NoteRepository) GetNote(ctx context.Context, noteId string) (*Note, err
 	return &note, nil
 }
 
-func (r *NoteRepository) UpdateNote(ctx context.Context, note *Note) (*Note, error) {
+func (r *NoteRepository) Update(ctx context.Context, note *models.Note) (*models.Note, error) {
 	result := r.db.WithContext(ctx).Save(note)
 	if result.Error != nil {
 		return nil, fmt.Errorf("update note with ID %s: %w", note.ID, result.Error)
@@ -76,8 +77,8 @@ func (r *NoteRepository) UpdateNote(ctx context.Context, note *Note) (*Note, err
 	return note, nil
 }
 
-func (r *NoteRepository) DeleteNote(ctx context.Context, noteId string) error {
-	result := r.db.WithContext(ctx).Where("id = ?", noteId).Delete(&Note{})
+func (r *NoteRepository) Delete(ctx context.Context, noteId string) error {
+	result := r.db.WithContext(ctx).Where("id = ?", noteId).Delete(&models.Note{})
 	if result.Error != nil {
 		return fmt.Errorf("delete note with ID %s: %w", noteId, result.Error)
 	}

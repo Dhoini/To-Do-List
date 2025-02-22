@@ -1,6 +1,7 @@
 package notes
 
 import (
+	"ToDo/internal/models"
 	"ToDo/pkg/middleware"
 	"ToDo/pkg/req"
 	"ToDo/pkg/res"
@@ -49,14 +50,14 @@ func (h *NoteHandler) CreateNote() http.HandlerFunc {
 			return
 		}
 
-		note := &Note{
+		note := &models.Note{
 			Title:   body.Title,
 			Content: body.Content,
 			Status:  body.Status,
 			UserID:  userID,
 		}
 
-		createdNote, err := h.NoteRepository.Create(r.Context(), note)
+		createdNote, err := h.NoteService.CreateNote(r.Context(), note)
 		if err != nil {
 			if errors.Is(err, ErrInvalidNoteStatus) {
 				res.JsonResponse(w, res.ErrorResponse{Error: "invalid note status"}, http.StatusBadRequest)
@@ -79,7 +80,7 @@ func (h *NoteHandler) GetAllNotes() http.HandlerFunc {
 		}
 
 		limit, offset := parsePagination(r)
-		notes, totalCount, err := h.NoteRepository.GetAll(r.Context(), userId, limit, offset)
+		notes, totalCount, err := h.NoteService.GetAllNotes(r.Context(), userId, limit, offset)
 		if err != nil {
 			res.JsonResponse(w, res.ErrorResponse{Error: "failed to get notes"}, http.StatusInternalServerError)
 			return
@@ -108,7 +109,7 @@ func (h *NoteHandler) GetNote() http.HandlerFunc {
 			return
 		}
 
-		note, err := h.NoteRepository.Get(r.Context(), noteId)
+		note, err := h.NoteService.GetNote(r.Context(), noteId)
 		if err != nil {
 			if errors.Is(err, ErrNoteNotFound) {
 				res.JsonResponse(w, res.ErrorResponse{Error: "note not found"}, http.StatusNotFound)
@@ -150,7 +151,7 @@ func (h *NoteHandler) UpdateNote() http.HandlerFunc {
 			res.JsonResponse(w, res.ErrorResponse{Error: "unauthorized"}, http.StatusUnauthorized)
 			return
 		}
-		existingNote, err := h.NoteRepository.Get(r.Context(), noteId)
+		existingNote, err := h.NoteService.GetNote(r.Context(), noteId)
 		if err != nil {
 			if errors.Is(err, ErrNoteNotFound) {
 				res.JsonResponse(w, res.ErrorResponse{Error: "note not found"}, http.StatusNotFound)
@@ -174,7 +175,7 @@ func (h *NoteHandler) UpdateNote() http.HandlerFunc {
 			existingNote.Status = body.Status
 		}
 
-		updatedNote, err := h.NoteRepository.Update(r.Context(), existingNote)
+		updatedNote, err := h.NoteService.UpdateNote(r.Context(), existingNote)
 		if err != nil {
 			if errors.Is(err, ErrInvalidNoteStatus) {
 				res.JsonResponse(w, res.ErrorResponse{Error: "invalid note status"}, http.StatusBadRequest)
@@ -204,7 +205,7 @@ func (h *NoteHandler) DeleteNote() http.HandlerFunc {
 			return
 		}
 
-		_, err := h.NoteRepository.Get(r.Context(), noteId)
+		_, err := h.NoteService.GetNote(r.Context(), noteId)
 		if err != nil {
 			if errors.Is(err, ErrNoteNotFound) {
 				res.JsonResponse(w, res.ErrorResponse{Error: "note not found"}, http.StatusNotFound)
@@ -220,7 +221,7 @@ func (h *NoteHandler) DeleteNote() http.HandlerFunc {
 			return
 		}
 
-		err = h.NoteRepository.Delete(r.Context(), noteId)
+		err = h.NoteService.DeleteNote(r.Context(), noteId)
 		if err != nil {
 			res.JsonResponse(w, res.ErrorResponse{Error: "failed to delete note"}, http.StatusInternalServerError)
 			return

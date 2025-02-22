@@ -23,11 +23,12 @@ func NewJWT(secret string) *JWTSecret {
 func (j *JWTSecret) GenerateToken(date JwtDate) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userId": date.UserId,
+		"email":  date.Email,
 	})
 
 	secret, err := token.SignedString([]byte(j.Secret))
 	if err != nil {
-		slog.Error(err.Error(), "can not sign token")
+		slog.Error(err.Error(), "can not sign token", err)
 		return "", err
 	}
 	return secret, nil
@@ -39,7 +40,7 @@ func (j *JWTSecret) ParseToken(token string) (bool, *JwtDate) {
 		return []byte(j.Secret), nil
 	})
 	if err != nil {
-		slog.Error(err.Error(), "can not parse token")
+		slog.Error(err.Error(), "can not parse token", err)
 		return false, nil
 	}
 	claims, ok := t.Claims.(jwt.MapClaims)
@@ -53,7 +54,13 @@ func (j *JWTSecret) ParseToken(token string) (bool, *JwtDate) {
 		slog.Error("invalid userId in token claims", "actual_value", claims["userID"])
 		return false, nil
 	}
+	email, ok := claims["email"].(string)
+	if !ok && claims["email"] != nil {
+		slog.Error("invalid email in token claims", "actual_value", claims["email"])
+		return false, nil
+	}
 	return t.Valid, &JwtDate{
 		UserId: userID,
+		Email:  email,
 	}
 }

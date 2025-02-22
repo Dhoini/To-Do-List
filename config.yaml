@@ -2,7 +2,7 @@ DB:
   DSN: "host=localhost user=postgres password=Daniar05 dbname=ToDo port=5432 sslmode=disable"
 
 AUTH:
-  SECRET: "your-super-secret-key"
+  SECRET: "SECRET_KEY"
   TOKEN_LIFETIME: 24h
 
 SERVER:

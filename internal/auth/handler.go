@@ -2,22 +2,20 @@ package auth
 
 import (
 	"ToDo/configs"
-	"ToDo/internal/user"
-	"ToDo/pkg/req"
-	"ToDo/pkg/res"
-	token2 "ToDo/pkg/token"
-	"errors"
+	"ToDo/pkg/di"
+	"ToDo/pkg/middleware"
 	"net/http"
 )
 
-type AuthHandlerDeps struct {
-	*configs.Config
-	*AuthService
+// AuthHandler — структура хендлера, тоже используем интерфейс
+type AuthHandler struct {
+	Config      *configs.Config
+	AuthService di.IAuthService // Заменяем *AuthService на интерфейс
 }
 
-type AuthHandler struct {
-	*configs.Config
-	*AuthService
+type AuthHandlerDeps struct {
+	Config      *configs.Config
+	AuthService di.IAuthService
 }
 
 func NewAuthHandler(router *http.ServeMux, deps *AuthHandlerDeps) {
@@ -25,72 +23,12 @@ func NewAuthHandler(router *http.ServeMux, deps *AuthHandlerDeps) {
 		Config:      deps.Config,
 		AuthService: deps.AuthService,
 	}
+	middlewares := middleware.Chain(
+		middleware.CORS,
+		middleware.Logging,
+		middleware.RateLimiter(deps.Config.RateLimit.MaxRequests, deps.Config.RateLimit.Burst, deps.Config.RateLimit.TTL),
+	)
 
-	router.HandleFunc("POST /auth/login", handler.Login())
-	router.HandleFunc("POST /auth/register", handler.Register())
-}
-
-func (h *AuthHandler) Register() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		body, err := req.HandleBody[RegisterRequest](&w, r)
-		if err != nil {
-			return
-		}
-		userId, err := h.AuthService.Register(r.Context(), body.Email, body.Password, body.Name)
-		if err != nil {
-			if errors.Is(err, user.ErrUserAlreadyExists) {
-				res.JsonResponse(w, res.ErrorResponse{Error: err.Error()}, http.StatusConflict) //
-			} else {
-				res.JsonResponse(w, res.ErrorResponse{Error: "internal server error"}, http.StatusInternalServerError) //
-			}
-			return
-		}
-		token, err := token2.NewJWT(h.Config.Auth.Secret).GenerateToken(token2.JwtDate{
-			UserId: userId,
-		})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		data := RegisterResponse{
-			Token: token,
-		}
-		res.JsonResponse(w, data, http.StatusOK)
-
-	}
-}
-
-func (h *AuthHandler) Login() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-
-		body, err := req.HandleBody[LoginRequest](&w, r)
-		if err != nil {
-			return
-		}
-
-		email, err := h.AuthService.Login(r.Context(), body.Email, body.Password)
-		if err != nil {
-			if errors.Is(err, user.ErrUserNotFound) {
-				res.JsonResponse(w, res.ErrorResponse{Error: "invalid credentials"}, http.StatusUnauthorized)
-			} else {
-				res.JsonResponse(w, res.ErrorResponse{Error: "internal server errror"}, http.StatusInternalServerError)
-			}
-			return
-		}
-
-		token, err := token2.NewJWT(h.Config.Auth.Secret).GenerateToken(token2.JwtDate{
-			Email: email.Email,
-		})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		data := LoginResponse{
-			Token: token,
-		}
-		res.JsonResponse(w, data, http.StatusOK)
-
-	}
+	router.Handle("POST /auth/login", middlewares(handler.Login()))
+	router.Handle("POST /auth/register", middlewares(handler.Register()))
 }

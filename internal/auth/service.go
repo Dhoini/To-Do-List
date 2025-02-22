@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"ToDo/internal/models"
 	"ToDo/internal/user"
+	"ToDo/pkg/di"
 	"context"
 	"errors"
 	"fmt"
@@ -10,16 +12,10 @@ import (
 )
 
 type AuthService struct {
-	UserRepository IUserRepository
+	UserRepository di.IUserRepository
 }
 
-type IUserRepository interface {
-	Create(ctx context.Context, user *user.User) (*user.User, error)
-	FindById(ctx context.Context, userId string) (*user.User, error)
-	FindByEmail(ctx context.Context, email string) (*user.User, error)
-}
-
-func NewUserService(userRepository IUserRepository) *AuthService {
+func NewUserService(userRepository di.IUserRepository) *AuthService {
 	return &AuthService{
 		UserRepository: userRepository,
 	}
@@ -40,7 +36,7 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 		return "", fmt.Errorf("hash password: %w", err)
 	}
 	//Создаем пользователя
-	newUser := &user.User{
+	newUser := &models.User{
 		Email:    email,
 		Password: string(hashedPassword),
 		Name:     name,
@@ -52,8 +48,8 @@ func (s *AuthService) Register(ctx context.Context, email, password, name string
 	return createdUser.ID, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, id, password string) (*user.User, error) {
-	existingUser, err := s.UserRepository.FindById(ctx, id)
+func (s *AuthService) Login(ctx context.Context, email, password string) (*models.User, error) {
+	existingUser, err := s.UserRepository.FindByEmail(ctx, email)
 	if err != nil {
 		return nil, err // Ошибка уже обернута в репозитории
 	}

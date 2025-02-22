@@ -1,6 +1,9 @@
 package notes
 
-import "time"
+import (
+	"ToDo/internal/models"
+	"time"
+)
 
 type CreateNoteRequest struct {
 	Title   string `json:"title" validate:"required"`
@@ -9,10 +12,10 @@ type CreateNoteRequest struct {
 }
 
 type GetAllNotesResponse struct {
-	Notes      []Note `json:"notes"`
-	TotalCount int64  `json:"total_count"`
-	Limit      int    `json:"limit"`
-	Offset     int    `json:"offset"`
+	Notes      []models.Note `json:"notes"`
+	TotalCount int64         `json:"total_count"`
+	Limit      int           `json:"limit"`
+	Offset     int           `json:"offset"`
 }
 
 type GetNoteResponse struct {
