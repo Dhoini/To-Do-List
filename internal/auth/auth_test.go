@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"ToDo/internal/models"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -30,10 +31,10 @@ func (m *MockAuthService) Register(ctx context.Context, email, password, name st
 }
 
 // Login — реализация метода Login для мока, соответствует IAuthService
-func (m *MockAuthService) Login(ctx context.Context, email, password string) (*user.User, error) {
+func (m *MockAuthService) Login(ctx context.Context, email, password string) (*models.User, error) {
 	// Записываем вызов метода и возвращаем заранее заданные значения
 	args := m.Called(ctx, email, password)
-	return args.Get(0).(*user.User), args.Error(1) // Возвращаем *user.User и ошибку
+	return args.Get(0).(*models.User), args.Error(1) // Возвращаем *user.User и ошибку
 }
 
 // TestAuthHandler_Register — тесты для хендлера Register
@@ -168,7 +169,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			mockLogin: func(m *MockAuthService) {
 				// Настраиваем мок: при вызове Login возвращаем объект User и nil
 				m.On("Login", mock.Anything, "john@example.com", "password123").
-					Return(&user.User{
+					Return(&models.User{
 						ID:       "user123",
 						Email:    "john@example.com",
 						Password: "hashed_password",
@@ -193,7 +194,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			mockLogin: func(m *MockAuthService) {
 				// Настраиваем мок: возвращаем nil и ErrUserNotFound
 				m.On("Login", mock.Anything, "john@example.com", "wrongpassword").
-					Return((*user.User)(nil), user.ErrUserNotFound)
+					Return((*models.User)(nil), user.ErrUserNotFound)
 			},
 			expectedStatus: http.StatusUnauthorized, // Ожидаем 401 Unauthorized
 			checkResponse: func(t *testing.T, rr *httptest.ResponseRecorder) {

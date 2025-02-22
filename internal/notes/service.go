@@ -8,10 +8,10 @@ import (
 )
 
 type NoteService struct {
-	noteRepository di.INoteRepository
+	noteRepository di.INoteRepository // Используем интерфейс вместо конкретного типа
 }
 
-func NewNoteService(noteRepo *NoteRepository) *NoteService {
+func NewNoteService(noteRepo di.INoteRepository) *NoteService { // Принимаем интерфейс
 	return &NoteService{noteRepository: noteRepo}
 }
 
